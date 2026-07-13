@@ -1,0 +1,851 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>El Concejo de Bancadas</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root{
+    --bg:#F1ECE0;
+    --ink:#1C2A22;
+    --primary:#2F4F3E;
+    --primary-light:#3F6B54;
+    --primary-dark:#213A2C;
+    --gold:#B8923B;
+    --gold-light:#D8B968;
+    --red:#A63D33;
+    --red-light:#C75C4F;
+    --card-bg:#FFFDF8;
+    --border:#D9CFB8;
+    --muted:#7A7360;
+    --font-display: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+    --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; background:var(--bg); color:var(--ink); font-family:var(--font-ui); }
+  #app{ min-height:100vh; padding:20px 14px 60px; max-width:1100px; margin:0 auto; }
+  h1,h2,h3{ font-family:var(--font-display); font-weight:700; margin:0 0 6px; }
+  .eyebrow{ font-family:var(--font-mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--primary); font-weight:700; }
+  .muted{ color:var(--muted); }
+  .center{ text-align:center; }
+
+  .seal{
+    width:88px; height:88px; border-radius:50%;
+    background: radial-gradient(circle at 35% 30%, var(--gold-light), var(--gold) 70%, #8f7128 100%);
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--font-mono); font-weight:700; letter-spacing:.06em;
+    color:var(--primary-dark); font-size:20px;
+    box-shadow: 0 0 0 4px var(--card-bg), 0 0 0 6px var(--gold), 0 6px 14px rgba(0,0,0,.25);
+    margin:0 auto 8px;
+  }
+
+  .ribbon{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    background:var(--primary); color:#F4F1E6; padding:10px 16px; border-radius:10px;
+    font-family:var(--font-mono); font-size:12px; letter-spacing:.04em; margin-bottom:16px;
+  }
+  .ribbon .pill{ background:rgba(255,255,255,.14); padding:4px 10px; border-radius:20px; }
+  .ribbon .pill.active{ background:var(--gold); color:var(--primary-dark); font-weight:700; }
+  .ribbon .dot{ width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:5px; }
+  .dot.ok{ background:#7FD858; }
+  .dot.bad{ background:#D85858; }
+
+  .card{ background:var(--card-bg); border:1px solid var(--border); border-radius:14px; padding:18px 18px; margin-bottom:14px; }
+  .card.tight{ padding:14px 16px; }
+  .grid{ display:grid; gap:14px; }
+  @media(min-width:820px){ .grid.cols-2{ grid-template-columns:1fr 1fr; } .grid.cols-3{ grid-template-columns:repeat(3,1fr); } }
+
+  .btn{ font-family:var(--font-ui); font-weight:600; font-size:14px; border:none; border-radius:9px; padding:11px 18px; cursor:pointer; transition:transform .06s ease; }
+  .btn:active{ transform:scale(.97); }
+  .btn-primary{ background:var(--primary); color:#F4F1E6; }
+  .btn-primary:hover{ background:var(--primary-light); }
+  .btn-gold{ background:var(--gold); color:var(--primary-dark); }
+  .btn-red{ background:var(--red); color:#fff; }
+  .btn-ghost{ background:transparent; color:var(--primary); border:1.5px solid var(--primary); }
+  .btn-sm{ padding:6px 11px; font-size:12px; border-radius:7px; }
+  .btn:disabled{ opacity:.4; cursor:not-allowed; }
+  .btn-row{ display:flex; gap:10px; flex-wrap:wrap; }
+
+  input[type=text], input[type=number], select, textarea{
+    font-family:var(--font-ui); font-size:14px; padding:10px 12px; border:1.5px solid var(--border);
+    border-radius:8px; background:#fff; color:var(--ink); width:100%;
+  }
+  label{ font-size:12px; font-weight:700; color:var(--primary); text-transform:uppercase; letter-spacing:.05em; display:block; margin-bottom:4px; }
+  .field{ margin-bottom:12px; }
+
+  .tag{ display:inline-block; font-family:var(--font-mono); font-size:11px; padding:2px 8px; border-radius:20px; background:var(--primary); color:#fff; margin:2px 4px 2px 0; }
+  .tag.red{ background:var(--red); }
+  .tag.outline{ background:transparent; border:1px solid var(--border); color:var(--muted); }
+
+  .id-card{ border:2px solid var(--gold); border-radius:14px; padding:16px; background:linear-gradient(160deg,#FFFDF8,#F6EFDD); position:relative; }
+  .id-card .stamp{ position:absolute; top:12px; right:12px; }
+
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  th,td{ text-align:left; padding:7px 8px; border-bottom:1px solid var(--border); }
+  th{ font-family:var(--font-mono); font-size:11px; text-transform:uppercase; color:var(--muted); }
+
+  .list-plain{ list-style:none; padding:0; margin:0; }
+  .list-plain li{ padding:6px 0; border-bottom:1px dashed var(--border); font-size:14px; }
+
+  .vote-row{ display:flex; gap:8px; flex-wrap:wrap; }
+  .vote-btn{ flex:1; min-width:100px; padding:12px; border-radius:9px; border:2px solid var(--border); background:#fff; font-weight:700; cursor:pointer; }
+  .vote-btn.selected-favor{ border-color:var(--primary); background:var(--primary); color:#fff; }
+  .vote-btn.selected-contra{ border-color:var(--red); background:var(--red); color:#fff; }
+  .vote-btn.selected-condic{ border-color:var(--gold); background:var(--gold); color:var(--primary-dark); }
+
+  .entry-choice{ display:grid; gap:14px; margin-top:24px; }
+  @media(min-width:640px){ .entry-choice{ grid-template-columns:1fr 1fr; } }
+  .choice-card{ background:var(--card-bg); border:1.5px solid var(--border); border-radius:16px; padding:26px 20px; text-align:center; cursor:pointer; }
+  .choice-card:hover{ border-color:var(--primary); }
+  .choice-card h3{ margin-bottom:6px; }
+
+  .score-num{ font-family:var(--font-mono); font-weight:700; font-size:15px; }
+  .pm-btns{ display:flex; align-items:center; gap:6px; }
+  .pm-btns button{ width:26px; height:26px; border-radius:6px; border:1px solid var(--border); background:#fff; cursor:pointer; font-weight:700; }
+
+  .denuncia-item{ border-left:3px solid var(--red); padding:8px 10px; margin-bottom:8px; background:#FBF3EF; border-radius:0 8px 8px 0; font-size:13px; }
+  .footer-note{ text-align:center; font-size:11px; color:var(--muted); margin-top:30px; font-family:var(--font-mono); }
+  .config-warn{ background:#FBF3EF; border:1.5px solid var(--red); border-radius:10px; padding:14px 16px; margin-bottom:16px; font-size:13px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+(function(){
+
+  /* ======================================================================
+     CONFIGURA AQUÍ TU PROYECTO DE SUPABASE
+     1. Crea un proyecto gratis en https://supabase.com
+     2. Ve a Project Settings -> API y copia la URL y la anon public key
+     3. Ejecuta el archivo supabase_schema.sql en el SQL Editor de tu proyecto
+     4. Pega los valores abajo
+     ====================================================================== */
+  const SUPABASE_URL = "PEGA_AQUI_TU_SUPABASE_URL";
+  const SUPABASE_ANON_KEY = "PEGA_AQUI_TU_SUPABASE_ANON_KEY";
+
+  const CONFIGURED = SUPABASE_URL.indexOf('http') === 0 && SUPABASE_ANON_KEY.length > 20;
+  const sb = CONFIGURED ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+  /* ---------------------------- DATOS ESTÁTICOS ---------------------------- */
+
+  const IDENTITIES = [
+    { id:'verde', name:'Partido Verde-Comunitario',
+      base:'Zonas rurales y movimientos ambientalistas.',
+      interes:'Protección ambiental y economía campesina.',
+      lineasRojas:['Megaminería sin consulta previa','Privatización del agua'],
+      flexibles:['Política fiscal','Alianzas puntuales de conveniencia'] },
+    { id:'liberal', name:'Partido Liberal-Empresarial',
+      base:'Sector urbano y gremios empresariales.',
+      interes:'Libre mercado y baja regulación estatal.',
+      lineasRojas:['Impuestos altos a empresas','Controles de precios'],
+      flexibles:['Temas culturales e identitarios'] },
+    { id:'tradicion', name:'Partido Tradición y Familia',
+      base:'Sectores religiosos y conservadores.',
+      interes:'Defensa de los valores familiares tradicionales.',
+      lineasRojas:['Reconocimiento legal de identidades de género no binarias','Educación sexual laica obligatoria'],
+      flexibles:['Política económica'] },
+    { id:'obrero', name:'Partido Obrero-Popular',
+      base:'Sindicatos y trabajadores formales e informales.',
+      interes:'Derechos laborales y redistribución.',
+      lineasRojas:['Privatización de empresas públicas','Flexibilización laboral que reduzca prestaciones'],
+      flexibles:['Temas ambientales'] },
+    { id:'outsider', name:'Movimiento Outsider',
+      base:'Votantes desencantados con los partidos tradicionales.',
+      interes:'Anticorrupción y "cambio" frente a la clase política.',
+      lineasRojas:[],
+      flexibles:['Todo. Su identidad es la ambigüedad calculada'] },
+    { id:'etnico', name:'Movimiento Étnico-Regional',
+      base:'Comunidades indígenas, afrodescendientes y regiones periféricas.',
+      interes:'Autonomía territorial y representación cultural.',
+      lineasRojas:['Reducción de la consulta previa','Recorte de la autonomía territorial'],
+      flexibles:['Política económica general'] }
+  ];
+
+  const LAWS = [
+    { id:'tributaria', title:'Reforma Tributaria Progresiva', desc:'Aumenta impuestos a las grandes empresas y a las rentas altas.', gmNotes:'Suele beneficiar a Obrero-Popular; choca con Liberal-Empresarial.' },
+    { id:'consulta', title:'Ley de Consulta Previa Minera', desc:'Exige consulta previa obligatoria y vinculante para proyectos mineros.', gmNotes:'Beneficia a Verde-Comunitario y Étnico-Regional; puede chocar con Liberal.' },
+    { id:'flexlaboral', title:'Ley de Flexibilización Laboral', desc:'Reduce prestaciones laborales bajo el argumento de generar más empleo.', gmNotes:'Choca directo con Obrero-Popular; beneficia a Liberal-Empresarial.' },
+    { id:'generonobinario', title:'Reconocimiento Legal de Identidades de Género No Binarias', desc:'Otorga reconocimiento legal pleno a identidades de género no binarias.', gmNotes:'Choca con Tradición y Familia. Tema identitario puro, poco negociable.' },
+    { id:'redes', title:'Regulación de Redes Sociales y Desinformación Electoral', desc:'Crea reglas para plataformas digitales durante campañas electorales.', gmNotes:'Tema transversal; pocas líneas rojas directas, buena ronda de práctica.' },
+    { id:'salariominimo', title:'Aumento del Salario Mínimo por Decreto', desc:'Incrementa el salario mínimo legal por encima de la inflación.', gmNotes:'Beneficia a Obrero-Popular; choca con Liberal-Empresarial.' },
+    { id:'religion', title:'Educación Religiosa Obligatoria en Colegios Públicos', desc:'Incluye educación religiosa obligatoria en el currículo público.', gmNotes:'Beneficia a Tradición y Familia. Tema identitario.' },
+    { id:'reformaelectoral', title:'Reforma Electoral: Listas Cerradas y Paridad de Género', desc:'Cambia el sistema electoral hacia listas cerradas con paridad.', gmNotes:'Tema institucional: redistribuye poder futuro entre bancadas.' },
+    { id:'privatizacion', title:'Privatización de Empresa Pública de Servicios', desc:'Vende a privados una empresa estatal de servicios públicos.', gmNotes:'Choca con Obrero-Popular; beneficia a Liberal-Empresarial.' },
+    { id:'autonomia', title:'Autonomía Territorial para Cabildos y Consejos Comunitarios', desc:'Amplía la autonomía de gobiernos indígenas y consejos comunitarios.', gmNotes:'Beneficia a Étnico-Regional y Verde-Comunitario.' }
+  ];
+
+  const SEAT_SETS = { 3:[8,6,4], 4:[8,7,5,4], 5:[8,7,6,5,4], 6:[8,7,6,5,4,3] };
+  const PHASE_LABELS = { lobby:'Esperando ley', deliberacion:'Deliberación interna', discursos:'Discursos públicos', negociacion:'Negociación abierta', votacion:'Votación' };
+
+  /* ---------------------------- UTILIDADES ---------------------------- */
+
+  function uid(p){ return p+'_'+Math.random().toString(36).slice(2,9); }
+  function genCode(){ const L='ABCDEFGHJKLMNPQRSTUVWXYZ'; let s=''; for(let i=0;i<4;i++) s+=L[Math.floor(Math.random()*L.length)]; return s; }
+  function shuffle(arr){ const a=arr.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+  function esc(s){ return (s===undefined||s===null) ? '' : String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function findIdentity(id){ return IDENTITIES.find(i=>i.id===id); }
+  function findLaw(id){ return LAWS.find(l=>l.id===id); }
+
+  /* ---------------------------- CAPA DE DATOS: SUPABASE ---------------------------- */
+
+  let lastSyncOk = false;
+
+  async function storageGet(code){
+    if(!sb) return null;
+    try{
+      const { data, error } = await sb.from('lobbies').select('state').eq('code', code).maybeSingle();
+      lastSyncOk = !error;
+      if(error || !data) return null;
+      return data.state;
+    }catch(e){ lastSyncOk = false; return null; }
+  }
+  async function storageSet(code, state){
+    if(!sb) return false;
+    try{
+      const { error } = await sb.from('lobbies').upsert({ code, state, updated_at: new Date().toISOString() });
+      lastSyncOk = !error;
+      return !error;
+    }catch(e){ lastSyncOk = false; return false; }
+  }
+
+  let realtimeChannel = null;
+  function subscribeRealtime(code){
+    if(!sb) return;
+    if(realtimeChannel){ sb.removeChannel(realtimeChannel); realtimeChannel = null; }
+    realtimeChannel = sb.channel('lobby-changes-'+code)
+      .on('postgres_changes', { event:'*', schema:'public', table:'lobbies', filter:'code=eq.'+code }, payload=>{
+        if(payload.new && payload.new.state){ currentState = payload.new.state; lastSyncOk = true; renderApp(); }
+      })
+      .subscribe();
+  }
+  function unsubscribeRealtime(){
+    if(realtimeChannel && sb){ sb.removeChannel(realtimeChannel); realtimeChannel = null; }
+  }
+
+  function newLobbyState(code){
+    return {
+      code, createdAt: Date.now(),
+      phaseGame:'waiting',
+      players:[], bancadas:[], veedorIds:[],
+      lawDeckOrder: shuffle(LAWS.map(l=>l.id)),
+      drawnLawIds:[], currentLawId:null,
+      round:0, phase:'lobby', timerEndsAt:null,
+      denuncias:[], log:[]
+    };
+  }
+
+  /* ---------------------------- SESIÓN PERSISTENTE (localStorage) ---------------------------- */
+
+  function saveSession(){ try{ localStorage.setItem('concejo_session_v1', JSON.stringify(session)); }catch(e){} }
+  function loadSession(){ try{ const raw = localStorage.getItem('concejo_session_v1'); return raw ? JSON.parse(raw) : null; }catch(e){ return null; } }
+  function clearSession(){ try{ localStorage.removeItem('concejo_session_v1'); }catch(e){} }
+
+  function exitToEntry(){
+    unsubscribeRealtime();
+    if(pollHandle){ clearInterval(pollHandle); pollHandle=null; }
+    clearSession();
+    session = { role:null, lobbyCode:null, playerId:null, playerName:null };
+    currentState = null;
+    renderApp();
+  }
+
+  /* ---------------------------- ESTADO DE SESIÓN ---------------------------- */
+
+  let session = { role:null, lobbyCode:null, playerId:null, playerName:null };
+  let currentState = null;
+  let pollHandle = null;
+  let draft = { bancadaCount:5, veedorCount:2, timerSeconds:60, denunciaBancadaId:'', denunciaNota:'' };
+  let busy = false;
+
+  function startPolling(){
+    // Respaldo por si el canal de tiempo real se cae; Realtime debería bastar.
+    if(pollHandle) return;
+    pollHandle = setInterval(async ()=>{
+      if(session.lobbyCode){ const s = await storageGet(session.lobbyCode); if(s){ currentState = s; renderApp(); } }
+    }, 6000);
+  }
+
+  async function mutate(fn){
+    if(!session.lobbyCode || busy) return;
+    busy = true;
+    try{
+      let s = await storageGet(session.lobbyCode);
+      if(!s) s = currentState;
+      fn(s);
+      await storageSet(session.lobbyCode, s);
+      currentState = s;
+      renderApp();
+    } finally { busy = false; }
+  }
+
+  /* ---------------------------- RENDER RAÍZ ---------------------------- */
+
+  function renderApp(){
+    const app = document.getElementById('app');
+
+    if(!CONFIGURED){
+      app.innerHTML = `
+        <div class="config-warn">
+          <b>Falta configurar Supabase.</b> Abre este archivo HTML en un editor de texto y reemplaza
+          <code>SUPABASE_URL</code> y <code>SUPABASE_ANON_KEY</code> al inicio del &lt;script&gt; con los datos
+          de tu proyecto (Project Settings → API), y corre antes el archivo <code>supabase_schema.sql</code>
+          en el SQL Editor de Supabase.
+        </div>`;
+      return;
+    }
+
+    if(!session.role){ app.innerHTML = tplEntry(); bindEntry(); return; }
+    if(session.role==='gm'){
+      if(!session.lobbyCode){ app.innerHTML = tplGmEntry(); bindGmEntry(); return; }
+      if(!currentState){ app.innerHTML = tplLoading(); return; }
+      if(currentState.phaseGame==='waiting'){ app.innerHTML = tplGmWaiting(currentState); bindGmWaiting(); return; }
+      app.innerHTML = tplGmGame(currentState); bindGmGame(); return;
+    }
+    if(session.role==='player'){
+      if(!session.lobbyCode){ app.innerHTML = tplPlayerEntry(); bindPlayerEntry(); return; }
+      if(!currentState){ app.innerHTML = tplLoading(); return; }
+      const me = currentState.players.find(p=>p.id===session.playerId);
+      if(!me || !me.role){ app.innerHTML = tplPlayerWaiting(currentState); return; }
+      app.innerHTML = tplPlayerGame(currentState, me); bindPlayerGame(currentState, me); return;
+    }
+  }
+
+  function tplLoading(){ return '<div class="center" style="padding-top:80px;"><div class="seal">···</div><p class="muted">Cargando la sala...</p></div>'; }
+
+  function syncDot(){
+    return `<span class="pill"><span class="dot ${lastSyncOk?'ok':'bad'}"></span>${lastSyncOk?'En vivo':'Reconectando...'}</span>`;
+  }
+
+  /* ---------------------------- ENTRADA ---------------------------- */
+
+  function tplEntry(){
+    return `
+      <div class="center" style="padding-top:40px;">
+        <div class="seal">CB</div>
+        <div class="eyebrow">Simulación legislativa</div>
+        <h1>El Concejo de Bancadas</h1>
+        <p class="muted">Partidos, intereses, identidades y negociación de apoyos.</p>
+      </div>
+      <div class="entry-choice">
+        <div class="choice-card" id="choice-gm">
+          <h3>Soy el profesor</h3>
+          <p class="muted" style="font-size:13px;">Crea la sala, asigna roles y dirige las rondas.</p>
+        </div>
+        <div class="choice-card" id="choice-player">
+          <h3>Soy estudiante</h3>
+          <p class="muted" style="font-size:13px;">Únete con el código que te dio tu profesor.</p>
+        </div>
+      </div>
+      <p class="footer-note">Tu sesión queda guardada en este celular: si pierdes señal o recargas la página, vuelves a entrar automáticamente a tu bancada.</p>
+    `;
+  }
+  function bindEntry(){
+    document.getElementById('choice-gm').onclick = ()=>{ session.role='gm'; renderApp(); };
+    document.getElementById('choice-player').onclick = ()=>{ session.role='player'; renderApp(); };
+  }
+
+  /* ---------------------------- GM: CREAR / RECONECTAR ---------------------------- */
+
+  function tplGmEntry(){
+    return `
+      <div class="card">
+        <h2>Panel del profesor</h2>
+        <p class="muted">Crea una sala nueva o retoma una que ya existe.</p>
+        <div class="btn-row" style="margin:14px 0;">
+          <button class="btn btn-primary" id="gm-create">Crear nueva sala</button>
+        </div>
+        <div class="field" style="max-width:260px;">
+          <label>Retomar sala existente</label>
+          <input type="text" id="gm-reconnect-code" placeholder="Código, ej. ABCD" maxlength="4" style="text-transform:uppercase;"/>
+        </div>
+        <button class="btn btn-ghost btn-sm" id="gm-reconnect">Retomar</button>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="back-entry">← Volver</button>
+    `;
+  }
+  function bindGmEntry(){
+    document.getElementById('gm-create').onclick = async ()=>{
+      const code = genCode();
+      const state = newLobbyState(code);
+      await storageSet(code, state);
+      session = { role:'gm', lobbyCode:code, playerId:null, playerName:null };
+      currentState = state; saveSession(); subscribeRealtime(code); startPolling(); renderApp();
+    };
+    document.getElementById('gm-reconnect').onclick = async ()=>{
+      const code = document.getElementById('gm-reconnect-code').value.trim().toUpperCase();
+      if(!code) return;
+      const s = await storageGet(code);
+      if(!s){ alert('No se encontró esa sala.'); return; }
+      session = { role:'gm', lobbyCode:code, playerId:null, playerName:null };
+      currentState = s; saveSession(); subscribeRealtime(code); startPolling(); renderApp();
+    };
+    document.getElementById('back-entry').onclick = ()=>{ session={role:null,lobbyCode:null,playerId:null,playerName:null}; renderApp(); };
+  }
+
+  /* ---------------------------- GM: SALA DE ESPERA ---------------------------- */
+
+  function tplGmWaiting(state){
+    const players = state.players.map(p=>`<li>${esc(p.name)}</li>`).join('') || '<li class="muted">Nadie se ha unido todavía.</li>';
+    return `
+      <div class="ribbon"><span class="pill active">Sala ${esc(state.code)}</span><span class="pill">${state.players.length} estudiantes conectados</span>${syncDot()}</div>
+      <div class="grid cols-2">
+        <div class="card">
+          <div class="eyebrow">Código para tus estudiantes</div>
+          <div class="seal" style="width:120px;height:120px;font-size:28px;">${esc(state.code)}</div>
+          <p class="center muted" style="font-size:13px;">Compárteles el enlace de esta página y este código para unirse desde su celular.</p>
+        </div>
+        <div class="card">
+          <h3>Estudiantes conectados</h3>
+          <ul class="list-plain">${players}</ul>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Configurar bancadas</h3>
+        <div class="grid cols-2">
+          <div class="field">
+            <label>Número de bancadas (3–6)</label>
+            <input type="number" id="cfg-bancadas" min="3" max="6" value="${draft.bancadaCount}"/>
+          </div>
+          <div class="field">
+            <label>Número de veedores ciudadanos</label>
+            <input type="number" id="cfg-veedores" min="0" max="5" value="${draft.veedorCount}"/>
+          </div>
+        </div>
+        <p class="muted" style="font-size:12px;">El resto de estudiantes se repartirá lo más parejo posible entre las bancadas, al azar.</p>
+        <button class="btn btn-primary" id="gm-assign">Asignar roles y comenzar</button>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="back-entry2">← Salir</button>
+    `;
+  }
+  function bindGmWaiting(){
+    const b = document.getElementById('cfg-bancadas'); if(b) b.oninput = e=>draft.bancadaCount=parseInt(e.target.value)||5;
+    const v = document.getElementById('cfg-veedores'); if(v) v.oninput = e=>draft.veedorCount=parseInt(e.target.value)||0;
+    document.getElementById('gm-assign').onclick = ()=>doAssign();
+    const back = document.getElementById('back-entry2'); if(back) back.onclick = exitToEntry;
+  }
+
+  async function doAssign(){
+    await mutate(s=>{
+      const bCount = Math.max(3, Math.min(6, draft.bancadaCount||5));
+      const vCount = Math.max(0, Math.min(5, draft.veedorCount||0));
+      const totalNeeded = bCount + vCount;
+      if(s.players.length < totalNeeded){ alert('Necesitas al menos '+totalNeeded+' estudiantes conectados para esta configuración.'); return; }
+
+      const shuffled = shuffle(s.players.map(p=>p.id));
+      const veedorIds = shuffled.slice(0, vCount);
+      const remaining = shuffled.slice(vCount);
+
+      const identitiesPool = shuffle(IDENTITIES.map(i=>i.id)).slice(0, bCount);
+      const seats = shuffle(SEAT_SETS[bCount]);
+
+      const bancadas = identitiesPool.map((identId, idx)=>({
+        id: uid('banc'),
+        identityId: identId,
+        name: findIdentity(identId).name,
+        seats: seats[idx],
+        memberIds: [],
+        legislativos: 0,
+        confianza: 0,
+        currentVote: null,
+        voteBy: null
+      }));
+
+      remaining.forEach((pid, idx)=>{
+        const banc = bancadas[idx % bancadas.length];
+        banc.memberIds.push(pid);
+      });
+
+      s.players.forEach(p=>{
+        if(veedorIds.includes(p.id)){ p.role='veedor'; p.bancadaId=null; }
+        else{
+          const banc = bancadas.find(b=>b.memberIds.includes(p.id));
+          p.role='bancada'; p.bancadaId = banc ? banc.id : null;
+        }
+      });
+
+      s.bancadas = bancadas;
+      s.veedorIds = veedorIds;
+      s.phaseGame = 'playing';
+      s.phase = 'lobby';
+    });
+  }
+
+  /* ---------------------------- GM: JUEGO ---------------------------- */
+
+  function tplGmGame(state){
+    const law = state.currentLawId ? findLaw(state.currentLawId) : null;
+    const phaseLabel = PHASE_LABELS[state.phase] || state.phase;
+
+    let phaseButtons = '';
+    if(!law){
+      const remaining = state.lawDeckOrder.length;
+      phaseButtons = remaining>0
+        ? `<button class="btn btn-primary" id="btn-draw">Robar ley (${remaining} restantes)</button>`
+        : `<p class="muted">No quedan leyes en el mazo.</p>`;
+    } else {
+      const order = ['deliberacion','discursos','negociacion','votacion'];
+      const idx = order.indexOf(state.phase);
+      if(idx>=0 && idx<order.length-1){
+        const nextLabel = PHASE_LABELS[order[idx+1]];
+        phaseButtons = `<button class="btn btn-primary" id="btn-next-phase" data-next="${order[idx+1]}">Pasar a: ${nextLabel}</button>`;
+      } else if(state.phase==='votacion'){
+        phaseButtons = `<button class="btn btn-gold" id="btn-approve">Ley aprobada</button> <button class="btn btn-red" id="btn-reject">Ley rechazada</button>`;
+      }
+    }
+
+    const timerHtml = state.timerEndsAt
+      ? `<span class="pill" id="timer-pill" data-ends="${state.timerEndsAt}">···</span>`
+      : '';
+
+    const bancadasHtml = state.bancadas.map(b=>{
+      const ident = findIdentity(b.identityId);
+      const members = b.memberIds.map(pid=>{
+        const p = state.players.find(x=>x.id===pid);
+        return p ? esc(p.name) : '?';
+      }).join(', ') || '<span class="muted">sin miembros</span>';
+      const voteBadge = b.currentVote
+        ? `<span class="tag ${b.currentVote==='rechazo'?'red':''}">${b.currentVote.toUpperCase()}${b.voteBy?' — '+esc(b.voteBy):''}</span>`
+        : '<span class="tag outline">sin voto</span>';
+      return `
+        <div class="card tight">
+          <div style="display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:6px;">
+            <h3 style="margin:0;">${esc(b.name)} <span class="muted" style="font-size:12px; font-weight:400;">— ${b.seats} escaños</span></h3>
+            ${voteBadge}
+          </div>
+          <p style="font-size:13px; margin:6px 0;"><b>Base:</b> ${esc(ident.base)}<br/><b>Interés núcleo:</b> ${esc(ident.interes)}</p>
+          <p style="font-size:12px;"><b>Líneas rojas:</b> ${ident.lineasRojas.length? ident.lineasRojas.map(l=>`<span class="tag red">${esc(l)}</span>`).join('') : '<span class="muted">ninguna</span>'}</p>
+          <p style="font-size:12px; margin-bottom:8px;"><b>Miembros:</b> ${members}</p>
+          <div class="grid cols-2">
+            <div>
+              <div class="eyebrow" style="font-size:10px;">Legislativos</div>
+              <div class="pm-btns">
+                <button data-banc="${b.id}" data-field="legislativos" data-delta="-1">−</button>
+                <span class="score-num">${b.legislativos}</span>
+                <button data-banc="${b.id}" data-field="legislativos" data-delta="1">+</button>
+              </div>
+            </div>
+            <div>
+              <div class="eyebrow" style="font-size:10px;">Confianza ciudadana</div>
+              <div class="pm-btns">
+                <button data-banc="${b.id}" data-field="confianza" data-delta="-1">−</button>
+                <span class="score-num">${b.confianza}</span>
+                <button data-banc="${b.id}" data-field="confianza" data-delta="1">+</button>
+              </div>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+
+    let tallyHtml = '';
+    if(state.phase==='votacion'){
+      const favor = state.bancadas.filter(b=>b.currentVote==='apoyo').reduce((a,b)=>a+b.seats,0);
+      const total = state.bancadas.reduce((a,b)=>a+b.seats,0);
+      const needed = Math.floor(total/2)+1;
+      tallyHtml = `<div class="card tight"><b>Conteo:</b> ${favor} de ${total} escaños a favor. Se necesitan ${needed} para aprobar. ${favor>=needed?'<span class="tag">MAYORÍA ALCANZADA</span>':''}</div>`;
+    }
+
+    const denunciasHtml = state.denuncias.filter(d=>!d.resolved).map(d=>{
+      const banc = state.bancadas.find(b=>b.id===d.bancadaId);
+      return `<div class="denuncia-item">
+        <b>${esc(d.veedorName)}</b> señala a <b>${banc?esc(banc.name):'?'}</b>: "${esc(d.note)}"
+        <div class="btn-row" style="margin-top:6px;">
+          <button class="btn btn-sm btn-red" data-denuncia="${d.id}" data-action="apply">Aplicar −2 confianza</button>
+          <button class="btn btn-sm btn-ghost" data-denuncia="${d.id}" data-action="dismiss">Descartar</button>
+        </div>
+      </div>`;
+    }).join('') || '<p class="muted" style="font-size:13px;">Sin denuncias pendientes.</p>';
+
+    const scoreRows = state.bancadas.map(b=>`<tr><td>${esc(b.name)}</td><td>${b.legislativos}</td><td>${b.confianza}</td><td><b>${b.legislativos+b.confianza}</b></td></tr>`).join('');
+
+    return `
+      <div class="ribbon">
+        <span class="pill active">Sala ${esc(state.code)}</span>
+        <span class="pill">Ronda ${state.round}</span>
+        <span class="pill">${esc(phaseLabel)}</span>
+        ${timerHtml}
+        ${syncDot()}
+      </div>
+
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;">
+          <div>
+            ${law ? `<h2>${esc(law.title)}</h2><p>${esc(law.desc)}</p><p class="muted" style="font-size:12px;"><b>Nota para el profesor:</b> ${esc(law.gmNotes)}</p>` : '<h2>Sin ley activa</h2><p class="muted">Roba una ley para iniciar la ronda.</p>'}
+          </div>
+          <div class="btn-row">${phaseButtons}</div>
+        </div>
+        <div class="btn-row" style="margin-top:10px; align-items:center;">
+          <input type="number" id="timer-secs" value="${draft.timerSeconds}" style="width:90px;"/>
+          <button class="btn btn-ghost btn-sm" id="btn-timer">Iniciar cronómetro</button>
+        </div>
+        ${tallyHtml}
+      </div>
+
+      <div class="grid cols-2">
+        <div>
+          <h3>Bancadas</h3>
+          ${bancadasHtml}
+        </div>
+        <div>
+          <div class="card">
+            <h3>Denuncias de veedores</h3>
+            ${denunciasHtml}
+          </div>
+          <div class="card">
+            <h3>Marcador general</h3>
+            <table><thead><tr><th>Bancada</th><th>Legisl.</th><th>Confianza</th><th>Total</th></tr></thead><tbody>${scoreRows}</tbody></table>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="back-entry3">← Salir</button>
+    `;
+  }
+
+  function bindGmGame(){
+    const drawBtn = document.getElementById('btn-draw');
+    if(drawBtn) drawBtn.onclick = ()=>mutate(s=>{
+      const nextId = s.lawDeckOrder.shift();
+      s.currentLawId = nextId;
+      s.drawnLawIds.push(nextId);
+      s.round += 1;
+      s.phase = 'deliberacion';
+      s.bancadas.forEach(b=>{ b.currentVote=null; b.voteBy=null; });
+      s.timerEndsAt = null;
+    });
+
+    const nextPhaseBtn = document.getElementById('btn-next-phase');
+    if(nextPhaseBtn) nextPhaseBtn.onclick = ()=>{
+      const next = nextPhaseBtn.getAttribute('data-next');
+      mutate(s=>{ s.phase = next; s.timerEndsAt = null; });
+    };
+
+    const approveBtn = document.getElementById('btn-approve');
+    if(approveBtn) approveBtn.onclick = ()=>mutate(s=>{
+      s.log.push({round:s.round, lawId:s.currentLawId, result:'aprobada', ts:Date.now()});
+      s.currentLawId = null; s.phase='lobby'; s.timerEndsAt=null;
+    });
+    const rejectBtn = document.getElementById('btn-reject');
+    if(rejectBtn) rejectBtn.onclick = ()=>mutate(s=>{
+      s.log.push({round:s.round, lawId:s.currentLawId, result:'rechazada', ts:Date.now()});
+      s.currentLawId = null; s.phase='lobby'; s.timerEndsAt=null;
+    });
+
+    const timerSecsInput = document.getElementById('timer-secs');
+    if(timerSecsInput) timerSecsInput.oninput = e=>draft.timerSeconds = parseInt(e.target.value)||60;
+    const timerBtn = document.getElementById('btn-timer');
+    if(timerBtn) timerBtn.onclick = ()=>mutate(s=>{ s.timerEndsAt = Date.now() + (draft.timerSeconds||60)*1000; });
+
+    document.querySelectorAll('[data-banc]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const bancId = btn.getAttribute('data-banc');
+        const field = btn.getAttribute('data-field');
+        const delta = parseInt(btn.getAttribute('data-delta'));
+        mutate(s=>{ const b = s.bancadas.find(x=>x.id===bancId); if(b) b[field] = (b[field]||0) + delta; });
+      };
+    });
+
+    document.querySelectorAll('[data-denuncia]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const id = btn.getAttribute('data-denuncia');
+        const action = btn.getAttribute('data-action');
+        mutate(s=>{
+          const d = s.denuncias.find(x=>x.id===id); if(!d) return;
+          d.resolved = true;
+          if(action==='apply'){ const b = s.bancadas.find(x=>x.id===d.bancadaId); if(b) b.confianza -= 2; }
+        });
+      };
+    });
+
+    const back = document.getElementById('back-entry3');
+    if(back) back.onclick = exitToEntry;
+
+    const timerPill = document.getElementById('timer-pill');
+    if(timerPill){
+      const tick = ()=>{
+        const ends = parseInt(timerPill.getAttribute('data-ends'));
+        const remain = Math.max(0, Math.round((ends - Date.now())/1000));
+        timerPill.textContent = remain>0 ? ('⏱ '+remain+'s') : '⏱ tiempo terminado';
+      };
+      tick(); const iv = setInterval(()=>{ if(!document.body.contains(timerPill)){ clearInterval(iv); return; } tick(); }, 1000);
+    }
+  }
+
+  /* ---------------------------- ESTUDIANTE: ENTRAR ---------------------------- */
+
+  function tplPlayerEntry(){
+    return `
+      <div class="card">
+        <h2>Unirse a la sala</h2>
+        <div class="field">
+          <label>Código de la sala</label>
+          <input type="text" id="join-code" placeholder="Ej. ABCD" maxlength="4" style="text-transform:uppercase;"/>
+        </div>
+        <div class="field">
+          <label>Tu nombre</label>
+          <input type="text" id="join-name" placeholder="Nombre y apellido"/>
+        </div>
+        <button class="btn btn-primary" id="join-btn">Unirme</button>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="back-entry4">← Volver</button>
+    `;
+  }
+  function bindPlayerEntry(){
+    document.getElementById('join-btn').onclick = async ()=>{
+      const code = document.getElementById('join-code').value.trim().toUpperCase();
+      const name = document.getElementById('join-name').value.trim();
+      if(!code || !name){ alert('Escribe el código y tu nombre.'); return; }
+      const s = await storageGet(code);
+      if(!s){ alert('No existe una sala con ese código.'); return; }
+      let existing = s.players.find(p=>p.name.toLowerCase()===name.toLowerCase());
+      if(!existing){
+        existing = { id: uid('pl'), name, role:null, bancadaId:null };
+        s.players.push(existing);
+        await storageSet(code, s);
+      }
+      session = { role:'player', lobbyCode:code, playerId:existing.id, playerName:name };
+      currentState = s; saveSession(); subscribeRealtime(code); startPolling(); renderApp();
+    };
+    document.getElementById('back-entry4').onclick = ()=>{ session={role:null,lobbyCode:null,playerId:null,playerName:null}; renderApp(); };
+  }
+
+  function tplPlayerWaiting(state){
+    return `
+      <div class="center" style="padding-top:60px;">
+        <div class="seal">${esc(state.code)}</div>
+        <h2>Estás dentro, ${esc(session.playerName)}</h2>
+        <p class="muted">Esperando a que el profesor asigne los roles...</p>
+        <div style="margin-top:20px;">${syncDot()}</div>
+      </div>
+    `;
+  }
+
+  /* ---------------------------- ESTUDIANTE: JUEGO ---------------------------- */
+
+  function tplPlayerGame(state, me){
+    const law = state.currentLawId ? findLaw(state.currentLawId) : null;
+    const phaseLabel = PHASE_LABELS[state.phase] || state.phase;
+
+    let roleBlock = '';
+    if(me.role==='veedor'){
+      const bancOptions = state.bancadas.map(b=>`<option value="${b.id}">${esc(b.name)}</option>`).join('');
+      const misDenuncias = state.denuncias.filter(d=>d.veedorId===me.id).map(d=>{
+        const b = state.bancadas.find(x=>x.id===d.bancadaId);
+        return `<li>${b?esc(b.name):'?'}: "${esc(d.note)}" ${d.resolved?'<span class="muted">(revisada)</span>':''}</li>`;
+      }).join('') || '<li class="muted">Aún no has marcado ninguna.</li>';
+      roleBlock = `
+        <div class="card">
+          <div class="eyebrow">Tu rol</div>
+          <h2>Veedor Ciudadano</h2>
+          <p class="muted" style="font-size:13px;">Escucha los discursos y compara lo que cada bancada dice con lo que vota. Si notas una contradicción no justificada, márcala.</p>
+        </div>
+        <div class="card">
+          <h3>Bancadas en juego</h3>
+          <ul class="list-plain">${state.bancadas.map(b=>`<li>${esc(b.name)} — ${b.seats} escaños</li>`).join('')}</ul>
+        </div>
+        <div class="card">
+          <h3>Marcar contradicción</h3>
+          <div class="field"><label>Bancada</label><select id="den-bancada">${bancOptions}</select></div>
+          <div class="field"><label>¿Qué notaste?</label><textarea id="den-nota" rows="2" placeholder="Ej: dijeron que rechazaban la ley y votaron a favor"></textarea></div>
+          <button class="btn btn-red" id="den-submit">Marcar contradicción</button>
+        </div>
+        <div class="card">
+          <h3>Tus marcas</h3>
+          <ul class="list-plain">${misDenuncias}</ul>
+        </div>
+      `;
+    } else {
+      const banc = state.bancadas.find(b=>b.id===me.bancadaId);
+      const ident = banc ? findIdentity(banc.identityId) : null;
+      const members = banc ? banc.memberIds.map(pid=>{ const p=state.players.find(x=>x.id===pid); return p?esc(p.name):'?'; }).join(', ') : '';
+      let voteBlock = '';
+      if(banc){
+        if(state.phase==='votacion'){
+          voteBlock = `
+            <div class="card">
+              <h3>Emitir voto de tu bancada</h3>
+              <div class="vote-row">
+                <button class="vote-btn ${banc.currentVote==='apoyo'?'selected-favor':''}" data-vote="apoyo">Apoyo</button>
+                <button class="vote-btn ${banc.currentVote==='rechazo'?'selected-contra':''}" data-vote="rechazo">Rechazo</button>
+                <button class="vote-btn ${banc.currentVote==='condicionado'?'selected-condic':''}" data-vote="condicionado">Condicionado</button>
+              </div>
+              <p class="muted" style="font-size:12px; margin-top:8px;">Cualquier miembro de la bancada puede emitir el voto por el grupo.</p>
+            </div>`;
+        } else {
+          voteBlock = `<p class="muted" style="font-size:13px;">El voto se habilita en la fase de Votación.</p>`;
+        }
+      }
+      roleBlock = banc ? `
+        <div class="id-card">
+          <div class="stamp"><span class="tag">${esc(banc.name)}</span></div>
+          <div class="eyebrow">Identidad partidista — secreta</div>
+          <h2>${esc(ident.name)}</h2>
+          <p><b>Base social:</b> ${esc(ident.base)}</p>
+          <p><b>Interés núcleo:</b> ${esc(ident.interes)}</p>
+          <p><b>Líneas rojas:</b> ${ident.lineasRojas.length ? ident.lineasRojas.map(l=>`<span class="tag red">${esc(l)}</span>`).join('') : '<span class="muted">ninguna: la ambigüedad es tu identidad</span>'}</p>
+          <p><b>Temas flexibles:</b> ${ident.flexibles.map(f=>`<span class="tag outline">${esc(f)}</span>`).join('')}</p>
+          <p style="font-size:12px;" class="muted"><b>Tu bancada:</b> ${members}</p>
+        </div>
+        ${voteBlock}
+        <div class="card tight">
+          <div class="eyebrow" style="font-size:10px;">Tu puntaje</div>
+          <p style="font-size:13px;">Legislativos: <b>${banc.legislativos}</b> · Confianza ciudadana: <b>${banc.confianza}</b></p>
+        </div>
+      ` : '<p class="muted">Aún no tienes bancada asignada.</p>';
+    }
+
+    return `
+      <div class="ribbon">
+        <span class="pill active">Sala ${esc(state.code)}</span>
+        <span class="pill">Ronda ${state.round}</span>
+        <span class="pill">${esc(phaseLabel)}</span>
+        ${syncDot()}
+      </div>
+      <div class="card">
+        ${law ? `<h2>${esc(law.title)}</h2><p>${esc(law.desc)}</p>` : '<h2>Esperando la próxima ley...</h2>'}
+      </div>
+      ${roleBlock}
+      <button class="btn btn-ghost btn-sm" id="back-entry5">Salir de la sala</button>
+    `;
+  }
+
+  function bindPlayerGame(state, me){
+    document.querySelectorAll('[data-vote]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const vote = btn.getAttribute('data-vote');
+        mutate(s=>{
+          const banc = s.bancadas.find(b=>b.id===me.bancadaId);
+          if(banc){ banc.currentVote = vote; banc.voteBy = session.playerName; }
+        });
+      };
+    });
+    const denSubmit = document.getElementById('den-submit');
+    if(denSubmit) denSubmit.onclick = ()=>{
+      const bancId = document.getElementById('den-bancada').value;
+      const nota = document.getElementById('den-nota').value.trim();
+      if(!nota) return;
+      mutate(s=>{
+        s.denuncias.push({ id: uid('den'), veedorId: me.id, veedorName: session.playerName, bancadaId: bancId, note: nota, round: s.round, resolved:false });
+      });
+    };
+    const back = document.getElementById('back-entry5');
+    if(back) back.onclick = exitToEntry;
+  }
+
+  /* ---------------------------- ARRANQUE ---------------------------- */
+
+  (async function init(){
+    if(!CONFIGURED){ renderApp(); return; }
+    const saved = loadSession();
+    if(saved && saved.lobbyCode && saved.role){
+      session = saved;
+      const s = await storageGet(session.lobbyCode);
+      if(s){ currentState = s; subscribeRealtime(session.lobbyCode); startPolling(); }
+      else { session = { role:null, lobbyCode:null, playerId:null, playerName:null }; clearSession(); }
+    }
+    renderApp();
+  })();
+})();
+</script>
+</body>
+</html>
