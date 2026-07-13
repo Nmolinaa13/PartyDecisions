@@ -147,8 +147,8 @@
   /* ======================================================================
      CONFIGURA AQUÍ TU PROYECTO DE SUPABASE (mismo valor que ya usabas)
      ====================================================================== */
-  const SUPABASE_URL = "PEGA_AQUI_TU_SUPABASE_URL";
-  const SUPABASE_ANON_KEY = "PEGA_AQUI_TU_SUPABASE_ANON_KEY";
+  const SUPABASE_URL = "https://ogfizmsbletrsmmyfeiz.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9nZml6bXNibGV0cnNtbXlmZWl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5NzM0NjgsImV4cCI6MjA5OTU0OTQ2OH0.zwH5GQ4HBFotbG4-ecnK40sS4tewzlEg3vyp8dkonB4";
 
   const CONFIGURED = SUPABASE_URL.indexOf('http') === 0 && SUPABASE_ANON_KEY.length > 20;
   const sb = CONFIGURED ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
